@@ -1,0 +1,98 @@
+import tkinter as tk
+from tkinter import filedialog, ttk
+import pandas as pd
+from datetime import datetime, timedelta
+import calendar
+# from influxdb import InfluxDBClient
+# from influxdb import DataFrameClient
+
+def select_csv_file():
+    global csv_file_path
+    csv_file_path = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
+    if csv_file_path:
+        print(f"Selected CSV file: {csv_file_path}")
+        ask_month_and_cloud()
+
+def ask_month_and_cloud():
+    top = tk.Toplevel(root)
+    top.title("Select Month, Cloud, and Add to CSV")
+
+    # Month Selection
+    tk.Label(top, text="Select Month:").pack()
+    month_combobox = ttk.Combobox(top, values=["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"])
+    month_combobox.pack()
+
+    # Cloud Selection
+    tk.Label(top, text="Select Cloud:").pack()
+    cloud_combobox = ttk.Combobox(top, values=["Az-Prod", "Az-Non-Prod", "GCP"])
+    cloud_combobox.pack()
+
+    azureorgcp = ttk.Combobox(top, values=["Azure","GCP"])
+    azureorgcp.pack()
+
+    def add_to_csv():
+        month = month_combobox.get()
+        cloud = cloud_combobox.get()
+        typecloud  = azureorgcp.get()
+        
+        # Calculate the last day of the selected month
+        year = datetime.now().year
+        last_day = calendar.monthrange(year, month_combobox.current() + 1)[1]
+
+        # Create a timestamp in Unix format for the last second of the last day of the month
+        timestamp = int((datetime(year, month_combobox.current() + 1, last_day, 23, 59, 59) - datetime(1970, 1, 1)).total_seconds())
+
+        # Read the CSV file
+        df = pd.read_csv(csv_file_path)
+
+        # Add the selected Month, Cloud, and Unix Timestamp to the DataFrame
+        df['Month'] = month
+        df['Cloud'] = cloud
+        df['TimeStamp'] = timestamp
+        df['sre_component'] = "finops"
+        df['platform_capability'] = "finops"
+        df['platform_sub_capability'] = ""
+        df['sre_application_name']= "finops_automation"
+
+        print(df.info())
+        df.index = pd.to_datetime(df['TimeStamp'], unit='s')
+
+        # ### Store the data into InfluxDB
+        # ### Add tags for fields that need to be indexed, avoid indexing on every field for performance reasons. 
+        # datatags = ["ResourceId","ResourceType","ResourceLocation","ResourceGroupName","ServiceName","Meter","Tags","CostUSD","Cost","Month","Cloud","TimeStamp", "sre_component","platform_capability","platform_sub_capability","sre_application_name" ]
+
+        # # Set the name of the measurement
+        # measurement_name = "finops-test"
+
+        # # List the field columns
+        # field_columns = ["ResourceId","ResourceType","ResourceLocation","ResourceGroupName","ServiceName","Meter","Tags","CostUSD","Cost","Month","Cloud","TimeStamp", "sre_component","platform_capability","platform_sub_capability","sre_application_name" ]
+
+        # # Name the query in the second argument to write the data to InfluxDB
+        # client = DataFrameClient(dbhost, dbport, dbuser, dbpasswd, dbname, ssl=True, verify_ssl=False)
+        # client.write_points(
+        #     df, 
+        #     measurement_name, 
+        #     tag_columns=datatags, 
+        #     field_columns=field_columns,
+        #     time_precision='s', 
+        #     protocol='line')
+
+        # print("Data Posted to Influx")
+
+
+        # # Save the modified data back to the CSV file
+        # df.to_csv(csv_file_path, index=False)
+
+        # top.destroy()
+        # print("Data added to the CSV file.")
+
+    tk.Button(top, text="Add to CSV", command=add_to_csv).pack()
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    root.title("CSV File, Month, Cloud, and Add to CSV")
+
+    tk.Label(root, text="Step 1: Select a CSV File").pack()
+    tk.Button(root, text="Select CSV File", command=select_csv_file).pack()
+
+    root.mainloop()
